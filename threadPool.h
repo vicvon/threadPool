@@ -75,20 +75,24 @@ private:
 	{
 		while (running_)
 		{
-			std::unique_lock<std::mutex> lock(mutex_);
-			while (tasks_.empty() && running_)
+			Func task;
 			{
-				notEmpty_.wait(lock);
-			}
+				std::unique_lock<std::mutex> lock(mutex_);
+				while (tasks_.empty() && running_)
+				{
+					notEmpty_.wait(lock);
+				}
 
-			if (!tasks_.empty())
-			{
-				auto task = tasks_.front();
-				tasks_.pop_front();
-				if (maxTask_ > 0)
-					notFull_.notify_one();
-				task();
+				if (!tasks_.empty())
+				{
+					task = tasks_.front();
+					tasks_.pop_front();
+					if (maxTask_ > 0)
+						notFull_.notify_one();
+				}
 			}
+			if (task != nullptr)
+				task();
 		}
 	}
 public:
