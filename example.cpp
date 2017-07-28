@@ -22,9 +22,16 @@ int main()
     threadpool.start(5);
     threadpool.run(func, 1);
     threadpool.run(func1, 2, 3);
-    threadpool.run(func, 3);
-    threadpool.run(func1, 4, 5);
-    threadpool.run(func, 5);
+    threadpool.run([](int xx)
+    {
+        cout << xx << endl;
+    }, 33);
+    int x = 10, y = 20;
+    threadpool.run([x, y]()
+    {
+        cout << x << "-" << y << endl;
+    });
+    threadpool.run(std::bind(func, 100));
 
     char c;
     cin >> c;
