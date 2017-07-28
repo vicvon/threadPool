@@ -25,5 +25,9 @@ int main()
     threadpool.run(func, 3);
     threadpool.run(func1, 4, 5);
     threadpool.run(func, 5);
+
+    char c;
+    cin >> c;
+
     return 0;
 }

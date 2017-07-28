@@ -26,7 +26,7 @@ public:
         threads_.reserve(numThreads);
         for (int i = 0; i < numThreads; ++i)
         {
-            threads_.push_back(std::shared_ptr<std::thread>(new std::thread(std::bind(&ThreadPool<Ret>::workerThread, this))));
+            threads_.emplace_back(new std::thread(std::bind(&ThreadPool<Ret>::workerThread, this)));
         }
     }
     void stop()
@@ -47,7 +47,7 @@ public:
     {
         if (threads_.empty())
         {
-            task(args...);
+            task(std::forward<Args>(args)...);
         }
         else
         {
@@ -56,9 +56,8 @@ public:
             {
                 notFull_.wait(lock);
             }
-            std::shared_ptr<TaskManager> f(new TaskManager);
-            f->install(task, std::forward<Args>(args)...);
-            tasks_.push_back(f);
+            Func f = std::bind(task, std::forward<Args>(args)...);
+            tasks_.push_back(std::move(f));
             notEmpty_.notify_one();
         }
     }
@@ -76,7 +75,8 @@ private:
     {
         while (running_)
         {
-            std::shared_ptr<TaskManager> task;
+            bool flag = false;
+            Func task;
             {
                 std::unique_lock<std::mutex> lock(mutex_);
                 while (tasks_.empty() && running_)
@@ -88,36 +88,19 @@ private:
                 {
                     task = tasks_.front();
                     tasks_.pop_front();
+                    flag = true;
                     if (maxTask_ > 0)
                         notFull_.notify_one();
                 }
             }
-            if (task != nullptr)
-                task->load();
+            if (flag)
+                task();
         }
     }
-private:
-    struct TaskManager
-    {
-        template <typename FUNC, typename... Args>
-        void install(FUNC && fun, Args&& ...args)
-        {
-            m_func = [&fun, &args...]
-            {
-                return forward<FUNC>(fun)(forward<Args>(args)...);
-            };
-        }
-        void load()
-        {
-            return m_func();
-        }
-    private:
-        Func m_func;
-    };
-public:
+
 private:
     std::vector<std::shared_ptr<std::thread> > threads_;
-    std::deque<std::shared_ptr<TaskManager>> tasks_;
+    std::deque<Func> tasks_;
     bool running_;
     unsigned int maxTask_;
 
